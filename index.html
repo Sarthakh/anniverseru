@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sarthu ♥ Anushku</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Arial', sans-serif;
+        }
+
+        body {
+            /* This will be covered by the canvas, but set as a fallback */
+            background: #F5F5F5; /* PALETTE.LIGHT_GRAY */
+            overflow: hidden;
+        }
+
+        .canvas-wrapper {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+
+        .message, .controls div { /* Applied LIGHT_GRAY and PURPLE shadow */
+            color: #F5F5F5; /* PALETTE.LIGHT_GRAY */
+            text-shadow: 1px 1px 3px #604cc9; /* PALETTE.PURPLE */
+        }
+
+        .message {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            font-size: 16px;
+            z-index: 10;
+        }
+
+        .controls {
+            position: absolute;
+            bottom: 50px;
+            width: 100%;
+            display: flex;
+            justify-content: space-around;
+            z-index: 10; /* Ensure controls are above canvas elements if needed */
+        }
+    </style>
+</head>
+<body>
+    <div class="canvas-wrapper">
+        <canvas id="canvas-window"></canvas>
+        <div class="message">Move your mouse over our names 🧚</div>
+        <div class="controls">
+            <div>R = Music 👾</div>
+            <div>A = Pause 🐥</div>
+            <div>H = MORE HEARTSSS 💌</div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas-window');
+        const ctx = canvas.getContext('2d');
+        
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            init(); 
+        });
+
+        // Define the color palette
+        const PALETTE = {
+            ORANGE: '#FF6600',
+            LIGHT_GRAY: '#F5F5F5',
+            GREEN: '#6C0345',
+            PURPLE: '#604CC3',
+            LIGHT_PURPLE: "#FCC6FF",
+            CREAM: "#F72C5B"
+        };
+
+        // Helper function to convert hex to rgba string
+        function hexToRgbaString(hex, alpha = 1) {
+            let r = 0, g = 0, b = 0;
+            if (hex.length == 4) { // #RGB
+                r = parseInt(hex[1] + hex[1], 16);
+                g = parseInt(hex[2] + hex[2], 16);
+                b = parseInt(hex[3] + hex[3], 16);
+            } else if (hex.length == 7) { // #RRGGBB
+                r = parseInt(hex.slice(1, 3), 16);
+                g = parseInt(hex.slice(3, 5), 16);
+                b = parseInt(hex.slice(5, 7), 16);
+            }
+            return `rgba(${r},${g},${b},${alpha})`;
+        }
+        
+        const base_image = new Image(); // This image's color is embedded in its SVG data
+        base_image.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cGF0aCBmaWxsPSIjZmY2YjgxIiBkPSJNNDczLjcgNzMuOGwtMi40LTIuNWMtNDYtNDctMTIxLjEtNDcuMy0xNjcuNi0xLjExbC0zNi45IDM1LjQtMzYuOS0zNS40Yy00Ni41LTQ2LjItMTIxLjYtNDUuOS0xNjcuNiAxLjExbC0yLjQgMi41Yy00NC43IDQ1LjYtNDQuOSAxMTkuMi0uNSAxNjUuM2wxOTIuNiAxOTYuOGMxMi4zIDEyLjYgMzIuMyAxMi42IDQ0LjYgMGwxOTIuNi0xOTYuOGM0NC40LTQ2LjEgNDQuMi0xMTkuNy0uNS0xNjUuM3oiLz48L3N2Zz4=';
+        
+        let audio = new Audio();
+        audio.src = 'song.mp3'; 
+        audio.loop = true;
+
+        function playAudio() {
+            audio.play().catch(e => console.log("Audio play failed:", e));
+        }
+
+        const mouse = {
+            x: null,
+            y: null,
+            radius: 30
+        };
+
+        window.addEventListener('mousemove', (event) => {
+            mouse.x = event.x;
+            mouse.y = event.y;
+        });
+
+        window.addEventListener('keyup', (event) => {
+            if (event.key === 'r' || event.key === 'R') {
+                audio.currentTime = 0;
+                playAudio();
+            }
+            if (event.key === 'a' || event.key === 'A') {
+                audio.pause();
+                audio.currentTime = 0;
+            }
+            if (event.key === 'h' || event.key === 'H') {
+                createHearts(20);
+            }
+        });
+
+        let particleArray = [];
+        let hearts = [];
+        
+        const textToRender = 'Sarthu ♥ Anushku';
+        const textFont = "30px 'Arial'"; 
+
+        const textImageXOffset = 10; 
+        const textImageYOffset = 30; 
+        const textImageRectWidth = 300;  
+        const textImageRectHeight = 100; 
+
+        ctx.font = textFont;
+        const textMetrics = ctx.measureText(textToRender);
+        const textActualWidth = textMetrics.width;
+        const fontNumericSize = parseInt(textFont.match(/\d+/)[0]) || 30;
+        const textActualAscent = textMetrics.actualBoundingBoxAscent || (fontNumericSize * 0.75);
+        const textTopInImage = textImageYOffset - textActualAscent;
+
+        ctx.fillStyle = PALETTE.LIGHT_GRAY; // 
+        ctx.fillText(textToRender, textImageXOffset, textImageYOffset);
+        const textCoordinates = ctx.getImageData(0, 0, textImageRectWidth, textImageRectHeight);
+        
+        const particleScale = 3; 
+        let adjustX;
+        let adjustY;
+
+        const floatingHeartColors = [PALETTE.ORANGE, PALETTE.GREEN, PALETTE.PURPLE];
+        class Heart { // Floating hearts
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = canvas.height + Math.random() * 100;
+                this.size = Math.random() * 15 + 10;
+                this.speed = Math.random() * 2 + 1;
+                this.color = floatingHeartColors[Math.floor(Math.random() * floatingHeartColors.length)];
+                this.opacity = Math.random() * 0.5 + 0.5;
+            }
+
+            update() {
+                this.y -= this.speed;
+                this.opacity -= 0.002;
+                
+                if (this.y < -this.size || this.opacity <= 0) {
+                    this.reset();
+                }
+            }
+
+            reset() {
+                this.x = Math.random() * canvas.width;
+                this.y = canvas.height + Math.random() * 100;
+                this.size = Math.random() * 15 + 10;
+                this.speed = Math.random() * 2 + 1;
+                this.color = floatingHeartColors[Math.floor(Math.random() * floatingHeartColors.length)];
+                this.opacity = Math.random() * 0.5 + 0.5;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = this.opacity;
+                ctx.fillStyle = this.color;
+                
+                ctx.beginPath();
+                const topCurveHeight = this.size * 0.3;
+                ctx.moveTo(this.x, this.y + topCurveHeight);
+                ctx.bezierCurveTo(
+                    this.x - this.size, this.y, 
+                    this.x - this.size, this.y + this.size, 
+                    this.x, this.y + this.size * 1.5
+                );
+                ctx.bezierCurveTo(
+                    this.x + this.size, this.y + this.size, 
+                    this.x + this.size, this.y, 
+                    this.x, this.y + topCurveHeight
+                );
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        class Particle { // "Sarthu ♥ Anushku" text particles
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.baseSizeMin = 0.8; 
+                this.baseSizeRange = 0.4; 
+                this.size = Math.random() * this.baseSizeRange + this.baseSizeMin;
+                this.baseX = this.x;
+                this.baseY = this.y;
+                this.density = (Math.random() * 30) + 1;
+                this.distance = 1000;
+                this.color = PALETTE.LIGHT_PURPLE; // Base color: Purple
+            }
+
+            draw() {
+                ctx.beginPath();
+                
+                if (this.distance < mouse.radius) {
+                    ctx.fillStyle = PALETTE.CREAM; // Interactive color: Orange
+                    this.size = Math.random() * (this.baseSizeRange + 0.5) + (this.baseSizeMin + 0.5); 
+                } else {
+                    ctx.fillStyle = this.color; // Base color
+                    this.size = Math.random() * this.baseSizeRange + this.baseSizeMin;
+                }
+                
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            update() {
+                let dx = mouse.x - this.x;
+                let dy = mouse.y - this.y;
+                let distance = Math.sqrt(dx * dx + dy * dy);
+                this.distance = distance;
+                
+                if (distance < mouse.radius) {
+                    let forceDirectionX = dx / distance;
+                    let forceDirectionY = dy / distance;
+                    let maxDistance = mouse.radius;
+                    let force = (maxDistance - distance) / maxDistance;
+                    let directionX = forceDirectionX * force * this.density;
+                    let directionY = forceDirectionY * force * this.density;
+                    
+                    this.x -= directionX * 2; 
+                    this.y -= directionY * 2;
+                } else {
+                    if (this.x !== this.baseX) {
+                        let dx = this.x - this.baseX;
+                        this.x -= dx / 10;
+                    }
+                    if (this.y !== this.baseY) {
+                        let dy = this.y - this.baseY;
+                        this.y -= dy / 10;
+                    }
+                }
+            }
+        }
+
+        function createHearts(count) {
+            for (let i = 0; i < count; i++) {
+                hearts.push(new Heart());
+            }
+        }
+
+        function connect() { // Connecting lines for text particles
+            const connectionDistance = particleScale * 2.5; 
+
+            for (let a = 0; a < particleArray.length; a++) {
+                for (let b = a; b < particleArray.length; b++) {
+                    let dx = particleArray[a].x - particleArray[b].x;
+                    let dy = particleArray[a].y - particleArray[b].y;
+                    let distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < connectionDistance) { 
+                        let opacity = 1 - (distance / connectionDistance);
+                        ctx.strokeStyle = hexToRgbaString(PALETTE.LIGHT_GRAY, opacity * 0.3); // Light gray lines
+                        ctx.lineWidth = 0.5; 
+                        ctx.beginPath();
+                        ctx.moveTo(particleArray[a].x, particleArray[a].y);
+                        ctx.lineTo(particleArray[b].x, particleArray[b].y);
+                        ctx.stroke();
+                    }
+                }
+            }
+        }
+
+        function drawMainHeart() { // The large central heart
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2 + 50; 
+            const size = Math.min(canvas.width, canvas.height) * 0.15;
+            
+            ctx.save();
+            ctx.beginPath();
+            ctx.fillStyle = hexToRgbaString(PALETTE.GREEN, 0.8); // Green fill
+            const topCurveHeight = size * 0.3;
+            ctx.moveTo(centerX, centerY - size * 0.5);
+            ctx.bezierCurveTo(
+                centerX - size, centerY - size * 1.1, 
+                centerX - size, centerY, 
+                centerX, centerY + size * 0.6
+            );
+            ctx.bezierCurveTo(
+                centerX + size, centerY, 
+                centerX + size, centerY - size * 1.1, 
+                centerX, centerY - size * 0.5
+            );
+            ctx.closePath();
+            ctx.fill();
+            
+            ctx.shadowColor = hexToRgbaString(PALETTE.GREEN, 0.6); // Green shadow
+            ctx.shadowBlur = 15;
+            ctx.fill(); // Fill again to apply shadow to the shape
+            
+            ctx.textAlign = "center";
+            ctx.fillStyle = PALETTE.LIGHT_GRAY; // Light Gray text on heart
+            ctx.font = "bold 22px Arial";
+            ctx.fillText("Happy 2 Monthu Anniversiru", centerX, centerY);
+            ctx.font = "18px Arial";
+            ctx.fillText("I loveeeeee youuuu", centerX, centerY + 30);
+            ctx.restore();
+        }
+
+        function init() {
+            particleArray = [];
+            
+            adjustX = (canvas.width / (2 * particleScale)) - (textActualWidth / 2) - textImageXOffset;
+            adjustY = (canvas.height * 0.20 / particleScale) - textTopInImage;
+            
+            for (let y_img = 0, y2 = textCoordinates.height; y_img < y2; y_img++) {
+                for (let x_img = 0, x2 = textCoordinates.width; x_img < x2; x_img++) {
+                    if (textCoordinates.data[(y_img * 4 * textCoordinates.width) + (x_img * 4) + 3] > 128) {
+                        let baseX_unscaled = x_img + adjustX;
+                        let baseY_unscaled = y_img + adjustY;
+                        
+                        particleArray.push(new Particle(baseX_unscaled * particleScale, baseY_unscaled * particleScale));
+                    }
+                }
+            }
+            
+            hearts = []; 
+            createHearts(15);
+        }
+
+        // HSL values for background gradient (approximations from palette)
+        // PURPLE #604CC3: Approx HSL(248, 53%, 53%)
+        // GREEN #8FD14F: Approx HSL(93, 56%, 56%)
+        // HSL values for background gradient (approximations from palette)
+        // PURPLE #604CC3: Approx HSL(248, 53%, 53%)
+        // GREEN #8FD14F: Approx HSL(93, 56%, 56%)
+        // NEW HSL values for background gradient
+        // Color 1: #FBDB93 (Light Yellowish-Orange) -> HSL(~44, ~93%, ~78%)
+        const bgColor1_H = 345;
+        const bgColor1_S_base = 47; // Slightly lower base saturation for pulsing
+        const bgColor1_L_base =25; // Slightly lower base lightness for pulsing
+
+        // Color 2: #BE5B50 (Muted Reddish-Brown) -> HSL(~6, ~43%, ~53%)
+        const bgColor2_H = 6;
+        const bgColor2_S_base = 40; // Slightly lower base saturation for pulsing
+        const bgColor2_L_base = 50; // Slightly lower base lightness for pulsing
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            const time = Date.now() * 0.0005; // Slower time for more gradual pulsing
+            const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height); // Or maybe canvas.height, 0 for vertical
+            
+            // Pulsing background gradient using the new colors
+            // Color stop 1 (pulsing around #FBDB93)
+            gradient.addColorStop(0, `hsl(${bgColor1_H + Math.sin(time * 0.3) * 3}, ${bgColor1_S_base + Math.cos(time * 0.5) * 5}%, ${bgColor1_L_base + Math.sin(time * 0.7) * 3}%)`);
+            
+            // Color stop 2 (pulsing around #BE5B50)
+            gradient.addColorStop(1, `hsl(${bgColor2_H + Math.cos(time * 0.3) * 3}, ${bgColor2_S_base + Math.sin(time * 0.5) * 5}%, ${bgColor2_L_base + Math.cos(time * 0.7) * 3}%)`);
+            
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            for (let i = 0; i < particleArray.length; i++) {
+                particleArray[i].draw();
+                particleArray[i].update();
+            }
+            
+            connect();
+            drawMainHeart();
+            
+            for (let i = 0; i < hearts.length; i++) {
+                hearts[i].update();
+                hearts[i].draw();
+            }
+            
+            requestAnimationFrame(animate);
+        }
+        
+
+        init(); // Make sure these are called after all function definitions
+        animate();
+
+    </script>
+</body>
+</html>
